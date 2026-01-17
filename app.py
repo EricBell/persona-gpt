@@ -132,7 +132,8 @@ def index():
     """Render the chat interface."""
     return render_template('index.html',
                          query_count=get_query_count(),
-                         max_queries=MAX_QUERIES_PER_SESSION)
+                         max_queries=MAX_QUERIES_PER_SESSION,
+                         max_query_length=MAX_QUERY_LENGTH)
 
 
 @app.route('/health')
