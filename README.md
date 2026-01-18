@@ -91,6 +91,7 @@ profile-gpt/
 |----------|----------|---------|-------------|
 | `OPENAI_API_KEY` | Yes | - | OpenAI API key |
 | `FLASK_SECRET_KEY` | Yes | - | Secret for session signing |
+| `ADMIN_RESET_KEY` | No | - | Secret key for `/reset` endpoint |
 | `PERSONA_FILE_PATH` | No | `./persona.txt` | Path to persona instructions |
 | `QUERY_LOG_PATH` | No | `./logs` | Directory for query logs |
 | `MAX_QUERIES_PER_SESSION` | No | `20` | Query limit per session |
@@ -117,6 +118,7 @@ The `persona.txt` file contains system instructions that define how the AI respo
 | `/chat` | POST | Send chat message |
 | `/vet` | POST | Analyze job description |
 | `/status` | GET | Session status (query count, etc.) |
+| `/reset?key=XXX` | GET | Admin: reset session (requires `ADMIN_RESET_KEY`) |
 
 ## Deployment
 

@@ -22,6 +22,7 @@ MAX_QUERY_LENGTH = int(os.environ.get('MAX_QUERY_LENGTH', 500))
 MAX_JOB_DESCRIPTION_LENGTH = int(os.environ.get('MAX_JOB_DESCRIPTION_LENGTH', 5000))
 PERSONA_FILE_PATH = os.environ.get('PERSONA_FILE_PATH', './persona.txt')
 QUERY_LOG_PATH = os.environ.get('QUERY_LOG_PATH', './logs')
+ADMIN_RESET_KEY = os.environ.get('ADMIN_RESET_KEY', '')
 
 # OpenAI client (lazy initialization)
 _client = None
@@ -270,6 +271,27 @@ def status():
         'max_queries': MAX_QUERIES_PER_SESSION,
         'queries_remaining': MAX_QUERIES_PER_SESSION - get_query_count(),
         'version': __version__
+    })
+
+
+@app.route('/reset')
+def reset():
+    """Admin endpoint to reset session. Requires ADMIN_RESET_KEY."""
+    if not ADMIN_RESET_KEY:
+        return jsonify({'error': 'Reset endpoint not configured'}), 403
+
+    key = request.args.get('key', '')
+    if key != ADMIN_RESET_KEY:
+        return jsonify({'error': 'Invalid key'}), 403
+
+    # Clear session data
+    old_count = get_query_count()
+    session.clear()
+
+    return jsonify({
+        'status': 'success',
+        'message': 'Session reset successfully',
+        'previous_query_count': old_count
     })
 
 
