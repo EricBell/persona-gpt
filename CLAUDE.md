@@ -33,7 +33,32 @@ docker run -p 5000:5000 --env-file .env \
   -v $(pwd)/persona.txt:/data/persona.txt \
   -v $(pwd)/logs:/data/logs \
   profile-gpt
+
+# Docker Compose
+docker-compose up -d
 ```
+
+## Dokploy Deployment
+
+This app is ready for deployment on Dokploy (self-hosted PaaS).
+
+**Option 1: Docker Compose (Recommended)**
+1. In Dokploy, create a new "Compose" application
+2. Point to this repository
+3. Set environment variables in Dokploy UI:
+   - `OPENAI_API_KEY` (required)
+   - `FLASK_SECRET_KEY` (required - generate with `python -c "import secrets; print(secrets.token_hex(32))"`)
+4. Configure volumes for persistent data (`persona.txt`, `logs/`)
+
+**Option 2: Dockerfile**
+1. Create a new "Docker" application
+2. Point to this repository (uses Dockerfile)
+3. Set environment variables in Dokploy UI
+4. Add volume mounts:
+   - `./persona.txt:/data/persona.txt:ro`
+   - `./logs:/data/logs`
+
+**Health Check:** The app exposes `/health` endpoint for container monitoring.
 
 ## Guiding Document
 
