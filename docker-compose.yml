@@ -25,15 +25,16 @@ services:
       
       # 2. LOGS (Named Volume)
       # Keeps logs safe even if you rebuild the container.
-      - app_logs:/data/logs
+      # - app_logs:/data/logs
+      - ../files/logs:/data/logs # <--- Bind Mount (Visible in your Dokploy files folder)
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 5s
-# Define the volume for logs
-volumes:
-  app_logs:
+# # Define the volume for logs
+# volumes:
+#   app_logs:
 
 
