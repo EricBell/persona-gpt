@@ -3,13 +3,13 @@ import os
 import re
 import uuid
 from dataclasses import asdict
-from datetime import datetime
 from flask import Flask, render_template, request, jsonify, session
 from openai import OpenAI
 from dotenv import load_dotenv
 
 from version import __version__
 from job_vetting import sanitize_job_description, evaluate_job_description
+from query_logger import log_interaction
 
 load_dotenv()
 
@@ -108,31 +108,6 @@ def get_session_id():
     return session['session_id']
 
 
-def log_query(query):
-    """Log a query to the daily log file."""
-    try:
-        # Ensure log directory exists
-        os.makedirs(QUERY_LOG_PATH, exist_ok=True)
-
-        # Generate filename: YYMMDD-Queries
-        today = datetime.now()
-        filename = today.strftime('%y%m%d') + '-Queries'
-        filepath = os.path.join(QUERY_LOG_PATH, filename)
-
-        # Get session ID
-        session_id = get_session_id()
-
-        # Sanitize query for logging (replace newlines with spaces)
-        sanitized_query = query.replace('\n', ' ').replace('\r', '')
-
-        # Append to file
-        with open(filepath, 'a') as f:
-            f.write(f"{session_id} {sanitized_query}\n")
-    except Exception:
-        # Don't let logging failures break the app
-        pass
-
-
 @app.route('/')
 def index():
     """Render the chat interface."""
@@ -184,9 +159,6 @@ def chat():
             'max_length': MAX_QUERY_LENGTH
         }), 400
 
-    # Log the query
-    log_query(user_message)
-
     try:
         # Load persona (re-read each time for hot-swapping)
         persona = load_persona()
@@ -208,6 +180,9 @@ def chat():
         )
 
         assistant_message = response.choices[0].message.content
+
+        # Log the interaction
+        log_interaction(QUERY_LOG_PATH, get_session_id(), user_message, assistant_message)
 
         # Add assistant response to history
         add_to_conversation('assistant', assistant_message)
