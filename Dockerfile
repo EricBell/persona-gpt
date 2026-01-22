@@ -25,7 +25,9 @@ RUN uv pip install --system --no-cache .
 COPY app.py .
 COPY version.py .
 COPY job_vetting.py .
+COPY query_logger.py .
 COPY templates/ templates/
+COPY static/ static/
 
 # Create data directory for volume mounts
 # - /data/persona.txt: AI persona instructions (mount from host)
