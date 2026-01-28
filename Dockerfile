@@ -27,6 +27,7 @@ COPY version.py .
 COPY job_vetting.py .
 COPY query_logger.py .
 COPY config_validator.py .
+COPY intent_classifier.py .
 COPY templates/ templates/
 COPY static/ static/
 
