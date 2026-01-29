@@ -83,6 +83,7 @@ IN-SCOPE topics (respond "IN_SCOPE"):
 - Professional development, learning
 - System version queries (asking for the persona/profile version)
 - How to use this interface/app (e.g., "How do I use this?", "What is this?", "How does this work?")
+- Follow-up questions and clarifications (e.g., "give me examples", "tell me more", "can you elaborate", "what about...", "how so", "such as")
 
 OUT-OF-SCOPE topics (respond "OUT_OF_SCOPE"):
 - Personal life (family, hobbies, favorite things)
