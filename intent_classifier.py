@@ -1,3 +1,5 @@
+# Copyright Polymorph Corporation (2026)
+
 """
 LLM-based intent classification for pre-filtering out-of-scope queries.
 

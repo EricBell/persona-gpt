@@ -49,6 +49,27 @@ Version format: MAJOR.MINOR.PATCH (starting at 0.1.0)
 
 Update both `version.py` and `pyproject.toml` when changing versions.
 
+## Copyright Notice Requirements
+
+**All new files should include a copyright notice when applicable:**
+
+1. **Format**: `Copyright Polymorph Corporation (YYYY)` where YYYY is the current year (e.g., 2026)
+
+2. **File Types & Placement**:
+   - **Code files** (.py, .js, .css, etc.): Add as comment at top of file
+   - **Config files** (.yml, .toml, .json, etc.): Add as comment if format supports it
+   - **Documentation** (.md): Optional - may be omitted for pure documentation files
+
+3. **Comment Style**: Always use appropriate comment syntax for the file type:
+   ```python
+   # Copyright Polymorph Corporation (2026)
+   ```
+   ```yaml
+   # Copyright Polymorph Corporation (2026)
+   ```
+
+4. **Updating Existing Files**: If a copyright notice already exists, update the year to current year if not already included
+
 ## Deployment Checklist
 
 **When adding new Python modules or features, ALWAYS update these files:**

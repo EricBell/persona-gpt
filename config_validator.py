@@ -1,3 +1,5 @@
+# Copyright Polymorph Corporation (2026)
+
 """
 Configuration validation for ProfileGPT.
 

@@ -1,3 +1,5 @@
+// Copyright Polymorph Corporation (2026)
+
 /**
  * ProfileGPT - Main Application JavaScript
  * Handles chat and job vetting functionality

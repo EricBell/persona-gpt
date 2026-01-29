@@ -1,3 +1,5 @@
+# Copyright Polymorph Corporation (2026)
+
 """Job description vetting module for ProfileGPT."""
 
 import json

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright Polymorph Corporation (2026)
+
 """
 Analytics script for intent classification logs.
 

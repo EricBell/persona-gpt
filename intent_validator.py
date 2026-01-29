@@ -1,3 +1,5 @@
+# Copyright Polymorph Corporation (2026)
+
 """
 Intent validation module for pre-LLM filtering of out-of-scope queries.
 

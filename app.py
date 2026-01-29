@@ -1,3 +1,5 @@
+# Copyright Polymorph Corporation (2026)
+
 import argparse
 import os
 import re
