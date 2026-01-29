@@ -38,6 +38,17 @@ docker run -p 5000:5000 --env-file .env \
 docker-compose up -d
 ```
 
+## Version Management
+
+Version format: MAJOR.MINOR.PATCH (starting at 0.1.0)
+
+**Incrementing rules:**
+- MINOR: Increment when completing a new feature set
+- PATCH: Increment when fixing a bug or set of bugs in one turn
+- MAJOR: Only increment when instructed by the user (resets MINOR and PATCH to 0)
+
+Update both `version.py` and `pyproject.toml` when changing versions.
+
 ## Dokploy Deployment
 
 This app is ready for deployment on Dokploy (self-hosted PaaS).
