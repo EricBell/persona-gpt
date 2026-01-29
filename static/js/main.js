@@ -135,12 +135,28 @@
                 addMessage('assistant', data.response);
                 queryCountEl.textContent = data.query_count;
 
-                if (data.query_count >= config.maxQueries) {
+                // Update max queries if changed (extension approved)
+                if (data.max_queries) {
+                    config.maxQueries = data.max_queries;
+                    document.body.dataset.maxQueries = data.max_queries;
+                }
+
+                if (data.query_count >= data.max_queries) {
                     disableInput('Query limit reached for this session');
                 }
             } else if (response.status === 429) {
-                disableInput('Query limit reached for this session');
-                showError(data.message);
+                if (data.extension_requested) {
+                    // Show success message for extension request
+                    showError(data.message);
+                } else {
+                    // Show regular limit message
+                    showError(data.message);
+                }
+
+                // Don't disable input immediately if extension was requested
+                if (!data.extension_requested) {
+                    disableInput(data.message);
+                }
             } else {
                 showError(data.message || data.error || 'An error occurred');
             }

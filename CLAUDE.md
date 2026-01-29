@@ -107,6 +107,42 @@ This app is ready for deployment on Dokploy (self-hosted PaaS).
 
 **Health Check:** The app exposes `/health` endpoint for container monitoring.
 
+## Query Limit Extension Requests
+
+The app includes a system for users to request additional queries when they hit the session limit:
+
+1. **User Flow:**
+   - User hits query limit (20/20 by default)
+   - System prompts: "To request more questions, send a message with your email address"
+   - User types email in chat
+   - System detects email, creates extension request, sends notification to admin
+   - User receives confirmation message
+
+2. **Admin Workflow:**
+   - Eric receives email notification when extension request is created
+   - Admin visits `/extension-requests?key=YOUR_KEY` to review pending requests
+   - Admin approves/denies requests and specifies number of queries to grant (default: 10)
+   - Approved sessions automatically get increased query limits
+
+3. **Required Environment Variables:**
+   ```bash
+   ADMIN_EMAIL=eric@example.com
+   APP_URL=https://your-app-domain.com
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_USE_TLS=true
+   SMTP_USERNAME=your-email@gmail.com
+   SMTP_PASSWORD=your-app-password
+   ```
+
+4. **Key Files:**
+   - `email_detector.py` - Email extraction/validation
+   - `extension_manager.py` - Request management (CRUD)
+   - `email_notifier.py` - SMTP email notifications
+   - `templates/extension_requests.html` - Admin UI
+   - `logs/extension_requests.ndjson` - Request log
+   - `logs/approved_extensions.json` - Session approval tracking
+
 ## Guiding Document
 
 **See [Intentions.md](Intentions.md)** - This file defines the core principles that guide all development decisions for this project. The AI persona, response style, and interaction patterns described there should inform every feature and implementation choice.

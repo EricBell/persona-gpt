@@ -1,11 +1,13 @@
 # Copyright Polymorph Corporation (2026)
 
 import argparse
+import json
 import os
 import re
 import sys
 import uuid
 from dataclasses import asdict
+from datetime import datetime
 from flask import Flask, render_template, request, jsonify, session
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -16,6 +18,12 @@ from query_logger import log_interaction
 from config_validator import validate_flask_secret_key, validate_admin_reset_key
 from intent_classifier import classify_intent, get_refusal_response, extract_company_names
 from dataset_manager import parse_log_entries, validate_date_format
+from email_detector import extract_email
+from extension_manager import (
+    create_request, has_pending_request, get_pending_requests,
+    get_all_requests, get_request_by_id, approve_request, deny_request
+)
+from email_notifier import send_extension_request_notification
 
 load_dotenv()
 
@@ -144,12 +152,37 @@ def get_session_id():
     return session['session_id']
 
 
+def get_max_queries_for_session():
+    """Get max queries for current session (base + approved extensions)."""
+    base_max = MAX_QUERIES_PER_SESSION
+
+    # Check if this session has approved extension
+    session_id = get_session_id()
+    approvals_file = os.path.join(QUERY_LOG_PATH, 'approved_extensions.json')
+
+    if os.path.exists(approvals_file):
+        try:
+            with open(approvals_file, 'r', encoding='utf-8') as f:
+                approvals = json.load(f)
+
+            if session_id in approvals:
+                # Extension approved, add granted queries
+                granted = approvals[session_id]['queries_granted']
+                return base_max + granted
+        except Exception:
+            # If file is corrupted, just return base max
+            pass
+
+    return base_max
+
+
 @app.route('/')
 def index():
     """Render the chat interface."""
+    max_queries = get_max_queries_for_session()
     return render_template('index.html',
                          query_count=get_query_count(),
-                         max_queries=MAX_QUERIES_PER_SESSION,
+                         max_queries=max_queries,
                          max_query_length=MAX_QUERY_LENGTH,
                          max_job_description_length=MAX_JOB_DESCRIPTION_LENGTH,
                          version=__version__)
@@ -164,14 +197,73 @@ def health():
 @app.route('/chat', methods=['POST'])
 def chat():
     """Handle chat messages."""
-    # Check query limit
+    # Check query limit (with extension support)
     current_count = get_query_count()
-    if current_count >= MAX_QUERIES_PER_SESSION:
+    max_queries = get_max_queries_for_session()
+
+    if current_count >= max_queries:
+        # Get and validate input first (to check for email)
+        data = request.get_json()
+        if data and 'message' in data:
+            user_message = data.get('message', '').strip()
+
+            # Check if user is submitting email for extension request
+            email = extract_email(user_message)
+
+            if email and not has_pending_request(QUERY_LOG_PATH, get_session_id()):
+                # Create extension request
+                ext_request = create_request(QUERY_LOG_PATH, get_session_id(), email)
+
+                # Send notification to Eric
+                smtp_config = {
+                    'host': os.environ.get('SMTP_HOST'),
+                    'port': int(os.environ.get('SMTP_PORT', 587)),
+                    'use_tls': os.environ.get('SMTP_USE_TLS', 'true').lower() == 'true',
+                    'username': os.environ.get('SMTP_USERNAME'),
+                    'password': os.environ.get('SMTP_PASSWORD'),
+                    'from_email': os.environ.get('SMTP_USERNAME')
+                }
+
+                admin_email = os.environ.get('ADMIN_EMAIL')
+                admin_url = os.environ.get('APP_URL', request.host_url.rstrip('/'))
+
+                # Send email notification (best-effort, don't fail if email fails)
+                try:
+                    send_extension_request_notification(
+                        ext_request.request_id,
+                        get_session_id(),
+                        email,
+                        admin_email,
+                        admin_url,
+                        smtp_config
+                    )
+                except Exception as e:
+                    # Log error but continue
+                    print(f"Email notification failed: {e}", file=sys.stderr)
+
+                # Mark request in session to prevent re-submission
+                session['extension_requested'] = True
+                session['extension_request_id'] = ext_request.request_id
+
+                return jsonify({
+                    'error': 'limit_reached',
+                    'extension_requested': True,
+                    'message': 'Extension request received! We\'ll review your request and may extend your session. Check back shortly.',
+                    'query_count': current_count,
+                    'max_queries': max_queries
+                }), 429
+
+        # Default limit reached message (no email detected or already requested)
+        if session.get('extension_requested'):
+            message = 'Your extension request is pending review. Please check back later.'
+        else:
+            message = f'You have reached the maximum of {max_queries} questions for this session. To request more questions, send a message with your email address.'
+
         return jsonify({
             'error': 'limit_reached',
-            'message': f'You have reached the maximum of {MAX_QUERIES_PER_SESSION} questions for this session.',
+            'message': message,
             'query_count': current_count,
-            'max_queries': MAX_QUERIES_PER_SESSION
+            'max_queries': max_queries
         }), 429
 
     # Get and validate input
@@ -217,11 +309,12 @@ def chat():
             # Increment query count (prevent abuse)
             new_count = increment_query_count()
 
+            max_queries = get_max_queries_for_session()
             return jsonify({
                 'response': refusal_message,
                 'query_count': new_count,
-                'max_queries': MAX_QUERIES_PER_SESSION,
-                'queries_remaining': MAX_QUERIES_PER_SESSION - new_count,
+                'max_queries': max_queries,
+                'queries_remaining': max_queries - new_count,
                 'filtered_pre_llm': True
             })
 
@@ -268,11 +361,12 @@ def chat():
         # Increment query count
         new_count = increment_query_count()
 
+        max_queries = get_max_queries_for_session()
         return jsonify({
             'response': assistant_message,
             'query_count': new_count,
-            'max_queries': MAX_QUERIES_PER_SESSION,
-            'queries_remaining': MAX_QUERIES_PER_SESSION - new_count
+            'max_queries': max_queries,
+            'queries_remaining': max_queries - new_count
         })
 
     except Exception as e:
@@ -319,10 +413,12 @@ def vet():
 @app.route('/status')
 def status():
     """Get current session status."""
+    max_queries = get_max_queries_for_session()
+    query_count = get_query_count()
     return jsonify({
-        'query_count': get_query_count(),
-        'max_queries': MAX_QUERIES_PER_SESSION,
-        'queries_remaining': MAX_QUERIES_PER_SESSION - get_query_count(),
+        'query_count': query_count,
+        'max_queries': max_queries,
+        'queries_remaining': max_queries - query_count,
         'version': __version__
     })
 
@@ -446,6 +542,115 @@ def dataset():
         },
         key=key  # Pass key for pagination links
     )
+
+
+@app.route('/extension-requests')
+def extension_requests():
+    """Admin page to review and approve extension requests."""
+    if not ADMIN_RESET_KEY:
+        return jsonify({'error': 'Extension requests endpoint not configured'}), 403
+
+    key = request.args.get('key', '')
+    if key != ADMIN_RESET_KEY:
+        return jsonify({'error': 'Invalid key'}), 403
+
+    # Get filter parameters
+    status_filter = request.args.get('status', 'pending')  # pending, approved, denied, all
+
+    if status_filter == 'pending':
+        requests = get_pending_requests(QUERY_LOG_PATH)
+    else:
+        requests = get_all_requests(QUERY_LOG_PATH, status_filter)
+
+    return render_template(
+        'extension_requests.html',
+        requests=requests,
+        key=key,
+        status_filter=status_filter
+    )
+
+
+@app.route('/approve-extension', methods=['POST'])
+def approve_extension():
+    """Approve an extension request and grant queries to session."""
+    if not ADMIN_RESET_KEY:
+        return jsonify({'error': 'Extension approval not configured'}), 403
+
+    data = request.get_json()
+    key = data.get('key', '')
+    if key != ADMIN_RESET_KEY:
+        return jsonify({'error': 'Invalid key'}), 403
+
+    request_id = data.get('request_id')
+    queries_granted = int(data.get('queries_granted', 10))
+
+    # Get request details
+    ext_request = get_request_by_id(QUERY_LOG_PATH, request_id)
+    if not ext_request:
+        return jsonify({'error': 'Request not found'}), 404
+
+    # Mark as approved
+    approve_request(QUERY_LOG_PATH, request_id, queries_granted)
+
+    # Store approval in separate tracking file for session lookup
+    approvals_file = os.path.join(QUERY_LOG_PATH, 'approved_extensions.json')
+    os.makedirs(QUERY_LOG_PATH, exist_ok=True)
+
+    # Load existing approvals
+    if os.path.exists(approvals_file):
+        try:
+            with open(approvals_file, 'r', encoding='utf-8') as f:
+                approvals = json.load(f)
+        except Exception:
+            approvals = {}
+    else:
+        approvals = {}
+
+    # Add approval (keyed by session_id)
+    approvals[ext_request.session_id] = {
+        'queries_granted': queries_granted,
+        'approved_at': datetime.now().isoformat(),
+        'request_id': request_id,
+        'email': ext_request.email
+    }
+
+    # Save
+    with open(approvals_file, 'w', encoding='utf-8') as f:
+        json.dump(approvals, f, indent=2)
+
+    return jsonify({
+        'status': 'success',
+        'message': f'Extension approved: {queries_granted} additional queries granted',
+        'session_id': ext_request.session_id
+    })
+
+
+@app.route('/deny-extension', methods=['POST'])
+def deny_extension():
+    """Deny an extension request."""
+    if not ADMIN_RESET_KEY:
+        return jsonify({'error': 'Extension denial not configured'}), 403
+
+    data = request.get_json()
+    key = data.get('key', '')
+    if key != ADMIN_RESET_KEY:
+        return jsonify({'error': 'Invalid key'}), 403
+
+    request_id = data.get('request_id')
+
+    # Get request details
+    ext_request = get_request_by_id(QUERY_LOG_PATH, request_id)
+    if not ext_request:
+        return jsonify({'error': 'Request not found'}), 404
+
+    # Mark as denied
+    deny_request(QUERY_LOG_PATH, request_id)
+
+    return jsonify({
+        'status': 'success',
+        'message': 'Extension request denied',
+        'session_id': ext_request.session_id
+    })
 
 
 if __name__ == '__main__':

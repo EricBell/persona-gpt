@@ -31,6 +31,9 @@ COPY query_logger.py .
 COPY config_validator.py .
 COPY intent_classifier.py .
 COPY dataset_manager.py .
+COPY email_detector.py .
+COPY extension_manager.py .
+COPY email_notifier.py .
 COPY templates/ templates/
 COPY static/ static/
 COPY analyze_logs.py .
