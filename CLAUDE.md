@@ -20,15 +20,36 @@ ProfileGPT is an AI-powered "Ask Eric" web app for recruiters. It uses OpenAI's 
 - AI persona/system instructions: stored in a local file accessible to the Flask app
 - Hot-tunable settings: `config.json` (re-read on each request, no restart needed)
 
-### Hot-Tunable Settings (config.json)
+### Hot-Tunable Settings
 
-The app supports runtime configuration changes via `config.json`. This file is re-read on each request, allowing you to tune parameters without restarting:
+You can configure `conversation_history_limit` (how many previous messages to include in OpenAI API context) in two ways:
+
+#### Option 1: Environment Variable (Set Once)
+Add to your `.env` file or Dokploy environment variables:
+```bash
+CONVERSATION_HISTORY_LIMIT=10
+```
+Requires container restart to take effect.
+
+#### Option 2: Hot-Reload via config.json (Runtime Tuning)
+For runtime tuning without restart, use `config.json`:
 
 ```json
 {
-  "conversation_history_limit": 20
+  "conversation_history_limit": 10
 }
 ```
+
+**Setup for hot-reload (Dokploy):**
+1. In Dokploy, go to your app's "Files" tab
+2. Create a new file: `config.json`
+3. Add the JSON content above
+4. Edit `docker-compose.yml` and uncomment the config.json volume mount line
+5. Redeploy the container
+
+**After setup:**
+- Edit `config.json` in Dokploy UI
+- Changes take effect on next chat request (no restart needed)
 
 **Available settings:**
 - `conversation_history_limit`: Number of previous messages to include in OpenAI API context (default: 20)
@@ -37,12 +58,7 @@ The app supports runtime configuration changes via `config.json`. This file is r
   - Set to 0 to keep all history (not recommended for cost control)
   - Recommended range: 3-20 depending on your use case
 
-**Usage:**
-1. Edit `config.json` and save
-2. Changes take effect immediately on the next chat request
-3. No app restart or session reset required
-
-**Fallback:** If `config.json` is missing or invalid, the app uses the default from `CONVERSATION_HISTORY_LIMIT` env var (default: 20)
+**Fallback:** The Docker image includes a default config.json (limit: 20). If you don't mount a custom config.json, it uses this default.
 
 ### Token Cost Optimization
 

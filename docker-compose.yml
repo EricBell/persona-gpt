@@ -46,10 +46,12 @@ services:
       # This allows you to edit persona.txt in the Dokploy UI easily.
       - ../files/persona.txt:/data/persona.txt
 
-      # 2. CONFIG FILE (Bind Mount)
+      # 2. CONFIG FILE (Bind Mount) - OPTIONAL
       # Hot-tunable settings for runtime configuration without restart.
-      # Edit this file to change conversation_history_limit and other settings.
-      - ../files/config.json:/data/config.json
+      # UNCOMMENT the line below ONLY AFTER creating config.json in Dokploy files folder.
+      # The image includes a default config.json, so this mount is optional.
+      # To enable hot-reload: create ../files/config.json in Dokploy, then uncomment the line below.
+      # - ../files/config.json:/data/config.json
 
       # 3. LOGS (Bind Mount)
       # Keeps logs safe even if you rebuild the container.

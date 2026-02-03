@@ -31,3 +31,49 @@ I want to permit any LLM to be used if possible. Is this a job for OpenRouter. I
 Persona file
 - in notable project
 What do you think—ready to add one or two more (e.g., a trading tool like backtester or trading-journal ecosystem, the transcript-from-audio tool, or Dokploy VPS migration)? Or tweak any of these? Or move to another resume section (e.g., Professional Summary, Leadership/Community, Education/Certifications)? Let me know!/s
+
+
+260203
+
+ so where is config.json mounted if at all on my server?                                                                                                                                                                      
+                                                                                                                                                                                                                               
+● Good question! Let me clarify the current state:                                                                                                                                                                             
+                                                                                                                                                                                                                               
+  Current State (After My Fix)                                                                                                                                                                                                 
+                                                                                                                                                                                                                               
+  config.json is NOT mounted to your server at all right now.                                                                                                                                                                  
+                                                                                                                                                                                                                               
+  Here's where it exists:                                                                                                                                                                                                      
+                                                                                                                                                                                                                               
+  1. Inside the Docker container: /data/config.json                                                                                                                                                                            
+    - This file is baked into the image during build (copied from config.example.json)                                                                                                                                         
+    - It's isolated inside the container, not connected to any host file                                                                                                                                                       
+    - Default value: conversation_history_limit: 20                                                                                                                                                                            
+  2. On your Dokploy server: Nowhere                                                                                                                                                                                           
+    - The file doesn't exist on your host filesystem                                                                                                                                                                           
+    - The volume mount line is commented out in docker-compose.yml                                                                                                                                                             
+                                                                                                                                                                                                                               
+  What This Means                                                                                                                                                                                                              
+                                                                                                                                                                                                                               
+  - ✅ The app works (uses the built-in config.json from the image)                                                                                                                                                            
+  - ❌ You can't edit it from your server (no hot-reload capability yet)                                                                                                                                                       
+  - ✅ You can still configure it via environment variable CONVERSATION_HISTORY_LIMIT                                                                                                                                          
+                                                                                                                                                                                                                               
+  To Enable Hot-Reload (Optional)                                                                                                                                                                                              
+                                                                                                                                                                                                                               
+  If you want to edit config.json on your server and have changes take effect immediately:                                                                                                                                     
+                                                                                                                                                                                                                               
+  1. Create the file in Dokploy:                                                                                                                                                                                               
+    - Go to your app's "Files" tab                                                                                                                                                                                             
+    - Create: files/config.json                                                                                                                                                                                                
+    - Content:                                                                                                                                                                                                                 
+    {                                                                                                                                                                                                                          
+    "conversation_history_limit": 5                                                                                                                                                                                            
+  }                                                                                                                                                                                                                            
+  2. Uncomment the mount in docker-compose.yml (line ~47):                                                                                                                                                                     
+  - ../files/config.json:/data/config.json                                                                                                                                                                                     
+  3. Redeploy                                                                                                                                                                                                                  
+                                                                                                                                                                                                                               
+  After that, the file will be at: /etc/dokploy/compose/[your-app-id]/files/config.json on your server, and you can edit it for hot-reloading.                                                                                 
+                                                                                                                                                                                                                               
+  But for now, just use the environment variable CONVERSATION_HISTORY_LIMIT=5 in Dokploy - it's simpler and works immediately.      
