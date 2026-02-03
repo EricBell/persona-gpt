@@ -18,7 +18,9 @@ services:
       - MAX_QUERIES_PER_SESSION=${MAX_QUERIES_PER_SESSION:-20}
       - MAX_QUERY_LENGTH=${MAX_QUERY_LENGTH:-500}
       - MAX_JOB_DESCRIPTION_LENGTH=${MAX_JOB_DESCRIPTION_LENGTH:-5000}
+      - CONVERSATION_HISTORY_LIMIT=${CONVERSATION_HISTORY_LIMIT:-20}
       - PERSONA_FILE_PATH=/data/persona.txt
+      - CONFIG_FILE_PATH=/data/config.json
       - QUERY_LOG_PATH=/data/logs
       - PORT=5000
 
@@ -39,15 +41,20 @@ services:
 
 
     volumes:
-      # 1. CONFIG FILE (Bind Mount)
+      # 1. PERSONA FILE (Bind Mount)
       # Maps the file created in Dokploy's "Files" tab to the container.
       # This allows you to edit persona.txt in the Dokploy UI easily.
       - ../files/persona.txt:/data/persona.txt
-      
-      # 2. LOGS (Named Volume)
+
+      # 2. CONFIG FILE (Bind Mount)
+      # Hot-tunable settings for runtime configuration without restart.
+      # Edit this file to change conversation_history_limit and other settings.
+      - ../files/config.json:/data/config.json
+
+      # 3. LOGS (Bind Mount)
       # Keeps logs safe even if you rebuild the container.
-      # - app_logs:/data/logs
-      - ../files/logs:/data/logs # <--- Bind Mount (Visible in your Dokploy files folder)
+      # Visible in your Dokploy files folder.
+      - ../files/logs:/data/logs
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
       interval: 30s

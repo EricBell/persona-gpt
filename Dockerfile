@@ -23,7 +23,7 @@ COPY pyproject.toml .
 # Install dependencies with uv
 RUN uv pip install --system --no-cache .
 
-# Copy application code (NOT persona.txt - that's mounted at runtime)
+# Copy application code (NOT persona.txt or config.json - those are mounted at runtime)
 COPY app.py .
 COPY version.py .
 COPY job_vetting.py .
@@ -37,9 +37,11 @@ COPY email_notifier.py .
 COPY templates/ templates/
 COPY static/ static/
 COPY analyze_logs.py .
+COPY config.example.json /data/config.json
 
 # Create data directory for volume mounts
 # - /data/persona.txt: AI persona instructions (mount from host)
+# - /data/config.json: Hot-tunable settings (mount from host for runtime tuning)
 # - /data/logs: Query logs directory (mount from host for persistence)
 RUN mkdir -p /data/logs
 
@@ -49,6 +51,7 @@ RUN mkdir -p /data/logs
 # Set default environment variables
 ENV PORT=5000
 ENV PERSONA_FILE_PATH=/data/persona.txt
+ENV CONFIG_FILE_PATH=/data/config.json
 ENV QUERY_LOG_PATH=/data/logs
 
 # CRITICAL: Set these environment variables when running the container!

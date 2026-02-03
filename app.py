@@ -57,7 +57,11 @@ MAX_QUERY_LENGTH = int(os.environ.get('MAX_QUERY_LENGTH', 500))
 MAX_JOB_DESCRIPTION_LENGTH = int(os.environ.get('MAX_JOB_DESCRIPTION_LENGTH', 5000))
 PERSONA_FILE_PATH = os.environ.get('PERSONA_FILE_PATH', './persona.txt')
 QUERY_LOG_PATH = os.environ.get('QUERY_LOG_PATH', './logs')
+CONFIG_FILE_PATH = os.environ.get('CONFIG_FILE_PATH', './config.json')
 ADMIN_RESET_KEY = admin_reset
+
+# Default hot-tunable settings
+DEFAULT_CONVERSATION_HISTORY_LIMIT = int(os.environ.get('CONVERSATION_HISTORY_LIMIT', 20))
 
 # OpenAI client (lazy initialization)
 _client = None
@@ -92,6 +96,28 @@ def load_persona():
             return f.read().strip()
     except FileNotFoundError:
         return "You are a helpful assistant representing Eric Bell."
+
+
+def load_config():
+    """Load hot-tunable configuration from file. Re-reads on each call for runtime tuning.
+
+    Returns:
+        dict: Configuration settings with defaults if file not found
+    """
+    defaults = {
+        'conversation_history_limit': DEFAULT_CONVERSATION_HISTORY_LIMIT
+    }
+
+    try:
+        with open(CONFIG_FILE_PATH, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+            # Merge with defaults (file settings override defaults)
+            return {**defaults, **config}
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        # Return defaults if file doesn't exist or is invalid
+        if isinstance(e, json.JSONDecodeError):
+            print(f"Warning: Invalid JSON in {CONFIG_FILE_PATH}, using defaults", file=sys.stderr)
+        return defaults
 
 
 def sanitize_input(user_input):
@@ -184,11 +210,18 @@ def get_conversation_history():
 
 
 def add_to_conversation(role, content):
-    """Add a message to conversation history."""
+    """Add a message to conversation history.
+
+    The number of messages kept is configurable via config.json
+    (conversation_history_limit) for hot-tuning without restart.
+    """
+    config = load_config()
+    limit = int(config.get('conversation_history_limit', DEFAULT_CONVERSATION_HISTORY_LIMIT))
+
     conversation = get_conversation_history()
     conversation.append({'role': role, 'content': content})
-    # Keep last 20 messages to prevent context from growing too large
-    session['conversation'] = conversation[-20:]
+    # Keep last N messages to prevent context from growing too large
+    session['conversation'] = conversation[-limit:] if limit > 0 else conversation
 
 
 def get_session_id():

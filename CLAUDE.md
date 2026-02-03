@@ -18,6 +18,53 @@ ProfileGPT is an AI-powered "Ask Eric" web app for recruiters. It uses OpenAI's 
 
 - API credentials: `.env` file (gitignored)
 - AI persona/system instructions: stored in a local file accessible to the Flask app
+- Hot-tunable settings: `config.json` (re-read on each request, no restart needed)
+
+### Hot-Tunable Settings (config.json)
+
+The app supports runtime configuration changes via `config.json`. This file is re-read on each request, allowing you to tune parameters without restarting:
+
+```json
+{
+  "conversation_history_limit": 20
+}
+```
+
+**Available settings:**
+- `conversation_history_limit`: Number of previous messages to include in OpenAI API context (default: 20)
+  - Lower values = less token usage but less context
+  - Higher values = more context but higher token costs
+  - Set to 0 to keep all history (not recommended for cost control)
+  - Recommended range: 3-20 depending on your use case
+
+**Usage:**
+1. Edit `config.json` and save
+2. Changes take effect immediately on the next chat request
+3. No app restart or session reset required
+
+**Fallback:** If `config.json` is missing or invalid, the app uses the default from `CONVERSATION_HISTORY_LIMIT` env var (default: 20)
+
+### Token Cost Optimization
+
+To reduce OpenAI API token usage and costs:
+
+1. **Lower conversation history limit:**
+   - Edit `config.json` and set `conversation_history_limit` to a smaller value (e.g., 3, 5, or 10)
+   - Lower values mean less conversation context is sent with each API call
+   - Changes take effect immediately without restart
+
+2. **Monitor token usage:**
+   - Check your OpenAI API dashboard for usage metrics
+   - Test with different `conversation_history_limit` values to find the sweet spot
+   - Balance between cost (lower = cheaper) and quality (higher = better context)
+
+3. **Example configurations:**
+   - **Minimal context (lowest cost):** `{"conversation_history_limit": 3}`
+   - **Moderate context:** `{"conversation_history_limit": 10}`
+   - **Full context (default):** `{"conversation_history_limit": 20}`
+   - **No limit (highest cost, not recommended):** `{"conversation_history_limit": 0}`
+
+**Note:** Setting the limit too low may cause the AI to "forget" recent context and provide less coherent responses. Test to find the optimal balance for your use case.
 
 ## Running the App
 
