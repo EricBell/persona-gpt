@@ -47,7 +47,7 @@ def sanitize_job_description(job_description: str, max_length: int = 5000) -> st
     return job_description.strip()
 
 
-def evaluate_job_description(client, job_description: str, persona: str) -> VettingResult:
+def evaluate_job_description(client, job_description: str, persona: str):
     """
     Evaluate a job description against the persona using OpenAI.
 
@@ -57,7 +57,7 @@ def evaluate_job_description(client, job_description: str, persona: str) -> Vett
         persona: The persona/background information to evaluate against
 
     Returns:
-        VettingResult with scores and analysis
+        Tuple of (VettingResult, usage_object) with scores and token usage
     """
     system_prompt = """You are a job matching analyst. Your task is to evaluate how well a candidate matches a job description.
 
@@ -120,7 +120,7 @@ Analyze this match and return the JSON result."""
 
         result_data = json.loads(result_text)
 
-        return VettingResult(
+        vetting_result = VettingResult(
             overall_score=max(0, min(100, int(result_data.get('overall_score', 0)))),
             skills_match=max(0, min(100, int(result_data.get('skills_match', 0)))),
             experience_match=max(0, min(100, int(result_data.get('experience_match', 0)))),
@@ -131,8 +131,10 @@ Analyze this match and return the JSON result."""
             recommendation=str(result_data.get('recommendation', ''))
         )
 
+        return vetting_result, response.usage
+
     except json.JSONDecodeError:
-        return VettingResult(
+        result = VettingResult(
             overall_score=0,
             skills_match=0,
             experience_match=0,
@@ -142,8 +144,9 @@ Analyze this match and return the JSON result."""
             gaps=["Analysis failed - please try again"],
             recommendation="Could not complete analysis"
         )
+        return result, None
     except Exception as e:
-        return VettingResult(
+        result = VettingResult(
             overall_score=0,
             skills_match=0,
             experience_match=0,
@@ -153,3 +156,4 @@ Analyze this match and return the JSON result."""
             gaps=["Analysis error occurred"],
             recommendation="Please try again later"
         )
+        return result, None

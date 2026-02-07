@@ -170,6 +170,44 @@ This app is ready for deployment on Dokploy (self-hosted PaaS).
 
 **Health Check:** The app exposes `/health` endpoint for container monitoring.
 
+## Usage Tracking System
+
+ProfileGPT automatically tracks OpenAI API token usage and costs for all API calls:
+
+**What's Tracked:**
+- Per-request token usage (input tokens, output tokens, total tokens)
+- Estimated costs based on current gpt-4o-mini pricing ($0.150/1M input, $0.600/1M output)
+- Call type (classification, conversation, job_vetting)
+- Query scope (IN_SCOPE, OUT_OF_SCOPE)
+- Session ID and timestamp
+
+**Usage Data Storage:**
+- Logs stored in `logs/usage_tracking.ndjson` (one JSON object per line)
+- Each record includes: session_id, timestamp, tokens, costs, model, call_type, scope
+
+**Admin Dashboard:**
+- Access at `/usage-stats?key=YOUR_ADMIN_KEY`
+- View aggregate statistics (total calls, tokens, costs)
+- Breakdown by call type, scope, model, and date
+- Identify most expensive sessions
+- Filter by date range or session ID
+- Export data as JSON with `?format=json`
+
+**Key Metrics Available:**
+- Total API calls and token usage
+- Average tokens/cost per call
+- Daily usage trends
+- Cost breakdown by classification vs conversation
+- Token savings from OUT_OF_SCOPE filtering
+- Most expensive sessions (last 30 days)
+
+**Use Cases:**
+- Monitor API spending in real-time
+- Validate conversation_history_limit optimization
+- Identify expensive query patterns
+- Budget forecasting and cost control
+- Prove effectiveness of intent classification
+
 ## Intention Monitoring System
 
 ProfileGPT uses intention-based monitoring to ensure quality interactions and prevent runaway token usage:

@@ -16,7 +16,8 @@ from version import __version__
 from job_vetting import sanitize_job_description, evaluate_job_description
 from query_logger import log_interaction
 from config_validator import validate_flask_secret_key, validate_admin_reset_key
-from intent_classifier import classify_intent, get_refusal_response, get_warning_response, extract_company_names
+import intent_classifier
+from intent_classifier import get_refusal_response, get_warning_response, extract_company_names
 from dataset_manager import parse_log_entries, validate_date_format
 from email_detector import extract_email
 from extension_manager import (
@@ -24,6 +25,7 @@ from extension_manager import (
     get_all_requests, get_request_by_id, approve_request, deny_request
 )
 from email_notifier import send_extension_request_notification
+from usage_tracker import log_usage, parse_usage_logs, calculate_usage_stats, get_recent_expensive_sessions
 
 load_dotenv()
 
@@ -401,7 +403,36 @@ def chat():
     try:
         client = get_openai_client()
         company_names = get_company_names()
-        scope = classify_intent(client, user_message, company_names)
+        classification_response = client.chat.completions.create(
+            model='gpt-4o-mini',
+            messages=[
+                {'role': 'system', 'content': intent_classifier.build_classification_prompt(company_names)},
+                {'role': 'user', 'content': user_message}
+            ],
+            max_tokens=10,
+            temperature=0
+        )
+
+        # Parse classification result
+        classification = classification_response.choices[0].message.content.strip().upper()
+        if 'IN_SCOPE' in classification or 'IN SCOPE' in classification:
+            scope = 'IN_SCOPE'
+        elif 'OUT_OF_SCOPE' in classification or 'OUT SCOPE' in classification:
+            scope = 'OUT_OF_SCOPE'
+        else:
+            scope = 'IN_SCOPE'  # Safe default
+
+        # Log classification usage with determined scope
+        log_usage(
+            QUERY_LOG_PATH,
+            get_session_id(),
+            classification_response.usage.prompt_tokens,
+            classification_response.usage.completion_tokens,
+            classification_response.usage.total_tokens,
+            'gpt-4o-mini',
+            'classification',
+            scope
+        )
 
         if scope == 'OUT_OF_SCOPE':
             # Increment out-of-scope count
@@ -461,6 +492,18 @@ def chat():
 
         assistant_message = response.choices[0].message.content
 
+        # Log usage
+        log_usage(
+            QUERY_LOG_PATH,
+            get_session_id(),
+            response.usage.prompt_tokens,
+            response.usage.completion_tokens,
+            response.usage.total_tokens,
+            'gpt-4o-mini',
+            'conversation',
+            'IN_SCOPE'
+        )
+
         # Increment in-scope count
         in_scope_count, total_turns = increment_scope_count('IN_SCOPE')
 
@@ -516,7 +559,20 @@ def vet():
 
         # Get OpenAI client and evaluate
         client = get_openai_client()
-        result = evaluate_job_description(client, job_description, persona)
+        result, usage = evaluate_job_description(client, job_description, persona)
+
+        # Log usage if available
+        if usage:
+            log_usage(
+                QUERY_LOG_PATH,
+                get_session_id(),
+                usage.prompt_tokens,
+                usage.completion_tokens,
+                usage.total_tokens,
+                'gpt-4o-mini',
+                'job_vetting',
+                None
+            )
 
         return jsonify(asdict(result))
 
@@ -779,6 +835,69 @@ def deny_extension():
         'message': 'Extension request denied',
         'session_id': ext_request.session_id
     })
+
+
+@app.route('/usage-stats')
+def usage_stats():
+    """Admin endpoint to view usage statistics and costs. Requires ADMIN_RESET_KEY."""
+    if not ADMIN_RESET_KEY:
+        return jsonify({'error': 'Usage stats endpoint not configured'}), 403
+
+    key = request.args.get('key', '')
+    if key != ADMIN_RESET_KEY:
+        return jsonify({'error': 'Invalid key'}), 403
+
+    # Parse query parameters
+    start_date = request.args.get('start_date', '').strip()
+    end_date = request.args.get('end_date', '').strip()
+    session_id = request.args.get('session_id', '').strip()
+    response_format = request.args.get('format', 'html').strip().lower()
+
+    # Parse usage logs
+    try:
+        records = parse_usage_logs(
+            QUERY_LOG_PATH,
+            start_date=start_date if start_date else None,
+            end_date=end_date if end_date else None,
+            session_id=session_id if session_id else None
+        )
+
+        # Calculate statistics
+        stats = calculate_usage_stats(records)
+
+        # Get expensive sessions
+        expensive_sessions = get_recent_expensive_sessions(QUERY_LOG_PATH, limit=10, days=30)
+
+        # Return JSON format if requested
+        if response_format == 'json':
+            return jsonify({
+                'stats': stats,
+                'expensive_sessions': expensive_sessions,
+                'filters': {
+                    'start_date': start_date,
+                    'end_date': end_date,
+                    'session_id': session_id
+                }
+            })
+
+        # Return HTML format
+        return render_template(
+            'usage_stats.html',
+            stats=stats,
+            expensive_sessions=expensive_sessions,
+            filters={
+                'start_date': start_date,
+                'end_date': end_date,
+                'session_id': session_id
+            },
+            key=key
+        )
+
+    except Exception as e:
+        error_msg = f'Error analyzing usage: {str(e)}'
+        if response_format == 'json':
+            return jsonify({'error': error_msg}), 500
+        return render_template('usage_stats.html', error=error_msg, key=key, filters={})
 
 
 if __name__ == '__main__':

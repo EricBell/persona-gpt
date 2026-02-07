@@ -34,6 +34,7 @@ COPY dataset_manager.py .
 COPY email_detector.py .
 COPY extension_manager.py .
 COPY email_notifier.py .
+COPY usage_tracker.py .
 COPY templates/ templates/
 COPY static/ static/
 COPY analyze_logs.py .

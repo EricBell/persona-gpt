@@ -59,12 +59,14 @@ docker-compose up -d
 2. **Job Fit** - Paste a job description to get a match analysis with scores
 
 **Other Features:**
-- Session-based query limiting (default: 20 queries)
+- Session-based query limiting (default: 50 queries)
 - Conversation context maintained within session
 - Hot-swappable persona file (no redeploy needed)
 - Query logging for analytics
 - Health check endpoint for monitoring
 - LLM-based intent classification to filter out-of-scope queries
+- **Usage tracking** - Automatic token usage and cost tracking for all OpenAI API calls
+- **Admin dashboard** - View usage statistics, costs, and trends at `/usage-stats`
 
 ## Project Structure
 
@@ -138,6 +140,9 @@ The `persona.txt` file contains system instructions that define how the AI respo
 | `/vet` | POST | Analyze job description |
 | `/status` | GET | Session status (query count, etc.) |
 | `/reset?key=XXX` | GET | Admin: reset session (requires `ADMIN_RESET_KEY`) |
+| `/usage-stats?key=XXX` | GET | Admin: view usage statistics and costs (requires `ADMIN_RESET_KEY`) |
+| `/dataset?key=XXX` | GET | Admin: view conversation logs (requires `ADMIN_RESET_KEY`) |
+| `/extension-requests?key=XXX` | GET | Admin: manage session reset requests (requires `ADMIN_RESET_KEY`) |
 
 ## Deployment
 
