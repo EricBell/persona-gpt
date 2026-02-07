@@ -278,6 +278,18 @@ If a legitimate user hits any limit, they can submit their email to request a ma
    - `logs/extension_requests.ndjson` - Reset request log
    - `logs/approved_resets.json` - Session reset approval tracking
 
+## Git Workflow
+
+**IMPORTANT:** The user handles git commits themselves. Do NOT:
+- Offer to commit changes
+- Ask "ready to commit?"
+- Run git commit commands
+
+Instead:
+- Make the requested changes
+- Update version numbers when appropriate
+- Let the user commit when they're ready
+
 ## Guiding Document
 
 **See [Intentions.md](Intentions.md)** - This file defines the core principles that guide all development decisions for this project. The AI persona, response style, and interaction patterns described there should inform every feature and implementation choice.
