@@ -8,9 +8,11 @@ Tracks token usage and costs per request, provides analytics.
 
 import json
 import os
+import time
 from dataclasses import dataclass, asdict
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
+import httpx
 
 
 # GPT-4o-mini pricing (as of January 2026)
@@ -291,3 +293,184 @@ def get_recent_expensive_sessions(
     # Sort by cost and return top N
     sorted_sessions = sorted(sessions.values(), key=lambda s: s['total_cost'], reverse=True)
     return sorted_sessions[:limit]
+
+
+# ==================== OpenAI Usage API Integration ====================
+
+
+def fetch_openai_usage(
+    api_key: str,
+    start_date: str,
+    end_date: Optional[str] = None,
+    bucket_width: str = '1d'
+) -> Dict[str, Any]:
+    """
+    Fetch usage data from OpenAI's Usage API.
+
+    Args:
+        api_key: OpenAI API key
+        start_date: Start date in YYYY-MM-DD format
+        end_date: End date in YYYY-MM-DD format (defaults to start_date)
+        bucket_width: Time bucket width ('1m', '1h', '1d')
+
+    Returns:
+        Dictionary with usage data from OpenAI API
+
+    Raises:
+        Exception: If API call fails
+    """
+    # Convert dates to Unix timestamps
+    start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+    start_time = int(start_dt.timestamp())
+
+    if end_date:
+        end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+        # Add 1 day to make it inclusive
+        end_dt = end_dt + timedelta(days=1)
+        end_time = int(end_dt.timestamp())
+    else:
+        # Default to end of start_date
+        end_time = start_time + 86400  # 24 hours
+
+    # Call OpenAI Usage API
+    url = 'https://api.openai.com/v1/organization/usage/completions'
+    headers = {
+        'Authorization': f'Bearer {api_key}',
+        'Content-Type': 'application/json'
+    }
+    params = {
+        'start_time': start_time,
+        'end_time': end_time,
+        'bucket_width': bucket_width
+    }
+
+    try:
+        response = httpx.get(url, headers=headers, params=params, timeout=30.0)
+        response.raise_for_status()
+        return response.json()
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 404:
+            # Usage API might not be available for all accounts
+            raise Exception("OpenAI Usage API not available. This feature requires organization access.")
+        raise Exception(f"OpenAI API error: {e.response.status_code} - {e.response.text}")
+    except Exception as e:
+        raise Exception(f"Failed to fetch OpenAI usage: {str(e)}")
+
+
+def parse_openai_usage_response(response_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Parse OpenAI Usage API response into summary statistics.
+
+    Args:
+        response_data: Raw response from OpenAI Usage API
+
+    Returns:
+        Dictionary with parsed statistics
+    """
+    data = response_data.get('data', [])
+
+    total_tokens = 0
+    total_requests = 0
+    by_date = {}
+
+    for bucket in data:
+        # Extract aggregation keys (timestamp bucket)
+        aggregation = bucket.get('aggregation_timestamp', 0)
+        date_str = datetime.fromtimestamp(aggregation).strftime('%Y-%m-%d %H:%M:%S')
+
+        # Sum up results from all models/projects in this bucket
+        results = bucket.get('results', [])
+        bucket_tokens = 0
+        bucket_requests = 0
+
+        for result in results:
+            # Each result has input_tokens, output_tokens, num_model_requests
+            bucket_tokens += result.get('input_tokens', 0) + result.get('output_tokens', 0)
+            bucket_requests += result.get('num_model_requests', 0)
+
+        total_tokens += bucket_tokens
+        total_requests += bucket_requests
+
+        # Store by date
+        date_only = date_str[:10]
+        if date_only not in by_date:
+            by_date[date_only] = {
+                'tokens': 0,
+                'requests': 0,
+                'cost': 0.0
+            }
+
+        by_date[date_only]['tokens'] += bucket_tokens
+        by_date[date_only]['requests'] += bucket_requests
+
+    # Calculate costs (using our pricing)
+    # Note: OpenAI doesn't provide input/output breakdown in aggregated data,
+    # so we estimate using average ratio
+    estimated_cost = (total_tokens / 1_000_000) * ((COST_PER_1M_INPUT_TOKENS + COST_PER_1M_OUTPUT_TOKENS) / 2)
+
+    for date_data in by_date.values():
+        date_data['cost'] = (date_data['tokens'] / 1_000_000) * ((COST_PER_1M_INPUT_TOKENS + COST_PER_1M_OUTPUT_TOKENS) / 2)
+
+    return {
+        'total_tokens': total_tokens,
+        'total_requests': total_requests,
+        'estimated_cost': estimated_cost,
+        'by_date': sorted(by_date.items(), reverse=True),
+        'raw_data': response_data
+    }
+
+
+def compare_usage(
+    local_stats: Dict[str, Any],
+    openai_stats: Dict[str, Any]
+) -> Dict[str, Any]:
+    """
+    Compare local usage tracking with OpenAI's official usage data.
+
+    Args:
+        local_stats: Statistics from local usage tracking
+        openai_stats: Statistics from OpenAI Usage API
+
+    Returns:
+        Dictionary with comparison metrics
+    """
+    local_tokens = local_stats.get('total_tokens', 0)
+    openai_tokens = openai_stats.get('total_tokens', 0)
+
+    local_cost = local_stats.get('total_cost', 0)
+    openai_cost = openai_stats.get('estimated_cost', 0)
+
+    local_requests = local_stats.get('total_records', 0)
+    openai_requests = openai_stats.get('total_requests', 0)
+
+    # Calculate differences
+    token_diff = local_tokens - openai_tokens
+    token_diff_pct = (token_diff / openai_tokens * 100) if openai_tokens > 0 else 0
+
+    cost_diff = local_cost - openai_cost
+    cost_diff_pct = (cost_diff / openai_cost * 100) if openai_cost > 0 else 0
+
+    request_diff = local_requests - openai_requests
+    request_diff_pct = (request_diff / openai_requests * 100) if openai_requests > 0 else 0
+
+    return {
+        'local': {
+            'tokens': local_tokens,
+            'requests': local_requests,
+            'cost': local_cost
+        },
+        'openai': {
+            'tokens': openai_tokens,
+            'requests': openai_requests,
+            'cost': openai_cost
+        },
+        'difference': {
+            'tokens': token_diff,
+            'tokens_pct': token_diff_pct,
+            'requests': request_diff,
+            'requests_pct': request_diff_pct,
+            'cost': cost_diff,
+            'cost_pct': cost_diff_pct
+        },
+        'reconciled': abs(token_diff_pct) < 5  # Within 5% is considered reconciled
+    }

@@ -185,13 +185,20 @@ ProfileGPT automatically tracks OpenAI API token usage and costs for all API cal
 - Logs stored in `logs/usage_tracking.ndjson` (one JSON object per line)
 - Each record includes: session_id, timestamp, tokens, costs, model, call_type, scope
 
-**Admin Dashboard:**
-- Access at `/usage-stats?key=YOUR_ADMIN_KEY`
-- View aggregate statistics (total calls, tokens, costs)
-- Breakdown by call type, scope, model, and date
-- Identify most expensive sessions
-- Filter by date range or session ID
-- Export data as JSON with `?format=json`
+**Admin Dashboards:**
+- **Local Usage Stats** (`/usage-stats?key=YOUR_ADMIN_KEY`):
+  - View aggregate statistics (total calls, tokens, costs)
+  - Breakdown by call type, scope, model, and date
+  - Identify most expensive sessions
+  - Filter by date range or session ID
+  - Export data as JSON with `?format=json`
+
+- **Usage Reconciliation** (`/usage-reconciliation?key=YOUR_ADMIN_KEY`):
+  - Compare local tracking with OpenAI's official Usage API data
+  - Verify accuracy of local tracking
+  - Identify discrepancies in token counts or costs
+  - Reconcile billing data with internal logs
+  - Supports date range filtering
 
 **Key Metrics Available:**
 - Total API calls and token usage

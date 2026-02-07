@@ -25,7 +25,10 @@ from extension_manager import (
     get_all_requests, get_request_by_id, approve_request, deny_request
 )
 from email_notifier import send_extension_request_notification
-from usage_tracker import log_usage, parse_usage_logs, calculate_usage_stats, get_recent_expensive_sessions
+from usage_tracker import (
+    log_usage, parse_usage_logs, calculate_usage_stats, get_recent_expensive_sessions,
+    fetch_openai_usage, parse_openai_usage_response, compare_usage
+)
 
 load_dotenv()
 
@@ -898,6 +901,87 @@ def usage_stats():
         if response_format == 'json':
             return jsonify({'error': error_msg}), 500
         return render_template('usage_stats.html', error=error_msg, key=key, filters={})
+
+
+@app.route('/usage-reconciliation')
+def usage_reconciliation():
+    """Admin endpoint to reconcile local usage with OpenAI Usage API. Requires ADMIN_RESET_KEY."""
+    if not ADMIN_RESET_KEY:
+        return jsonify({'error': 'Usage reconciliation endpoint not configured'}), 403
+
+    key = request.args.get('key', '')
+    if key != ADMIN_RESET_KEY:
+        return jsonify({'error': 'Invalid key'}), 403
+
+    # Parse query parameters
+    start_date = request.args.get('start_date', '').strip()
+    end_date = request.args.get('end_date', '').strip()
+    response_format = request.args.get('format', 'html').strip().lower()
+
+    # Default to last 7 days if no dates provided
+    if not start_date:
+        start_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
+    if not end_date:
+        end_date = datetime.now().strftime('%Y-%m-%d')
+
+    try:
+        # Fetch local usage data
+        local_records = parse_usage_logs(
+            QUERY_LOG_PATH,
+            start_date=start_date,
+            end_date=end_date
+        )
+        local_stats = calculate_usage_stats(local_records)
+
+        # Fetch OpenAI usage data
+        api_key = os.environ.get('OPENAI_API_KEY')
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY not configured")
+
+        openai_response = fetch_openai_usage(
+            api_key,
+            start_date,
+            end_date,
+            bucket_width='1d'
+        )
+        openai_stats = parse_openai_usage_response(openai_response)
+
+        # Compare the two
+        comparison = compare_usage(local_stats, openai_stats)
+
+        # Return JSON format if requested
+        if response_format == 'json':
+            return jsonify({
+                'local_stats': local_stats,
+                'openai_stats': openai_stats,
+                'comparison': comparison,
+                'filters': {
+                    'start_date': start_date,
+                    'end_date': end_date
+                }
+            })
+
+        # Return HTML format
+        return render_template(
+            'usage_reconciliation.html',
+            local_stats=local_stats,
+            openai_stats=openai_stats,
+            comparison=comparison,
+            filters={
+                'start_date': start_date,
+                'end_date': end_date
+            },
+            key=key
+        )
+
+    except Exception as e:
+        error_msg = f'Error fetching usage data: {str(e)}'
+        if response_format == 'json':
+            return jsonify({'error': error_msg}), 500
+        return render_template('usage_reconciliation.html', error=error_msg, key=key, filters={
+            'start_date': start_date,
+            'end_date': end_date
+        })
 
 
 if __name__ == '__main__':
