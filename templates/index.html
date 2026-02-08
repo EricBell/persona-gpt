@@ -10,24 +10,38 @@
 <body data-max-queries="{{ max_queries }}" data-total-turns="{{ total_turns }}">
     <!-- Mode Selection View -->
     <div class="mode-selection" id="mode-selection">
-        <h2>Ask Eric</h2>
-        <p>Choose how you'd like to interact</p>
-        <div class="mode-buttons">
-            <button class="mode-button" id="chat-mode-btn">
-                <h3>Chat with Eric</h3>
-                <p>Ask questions about Eric's experience, skills, and working style</p>
+        <div class="hero-content">
+            <h1 class="hero-title">👋 Hi, I'm Eric</h1>
+            <p class="hero-subtitle">
+                Your AI conversation partner for understanding Eric Bell's professional experience
+            </p>
+
+            <!-- Primary CTA -->
+            <button class="primary-cta" id="chat-mode-btn">
+                Start a Conversation
+                <span class="arrow">→</span>
             </button>
-            <button class="mode-button" id="vetting-mode-btn">
-                <h3>Check Job Fit</h3>
-                <p>Paste a job description to see how well Eric matches</p>
-            </button>
-        </div>
-        <!-- Add suggestion hint -->
-        <div class="suggestion-hint">
-            <p class="hint-text">Not sure where to start?</p>
-            <button class="suggestion-link" data-suggestion="How do I use this?">
-                How do I use this?
-            </button>
+
+            <!-- Suggestion prompts -->
+            <div class="quick-prompts">
+                <p class="prompts-label">Try asking:</p>
+                <div class="prompt-buttons">
+                    <button class="prompt-button" data-suggestion="What are your top skills?">
+                        "What are your top skills?"
+                    </button>
+                    <button class="prompt-button" data-suggestion="Tell me about your AI experience">
+                        "Tell me about your AI experience"
+                    </button>
+                </div>
+            </div>
+
+            <!-- Secondary option -->
+            <div class="secondary-option">
+                <span class="divider-text">or</span>
+                <button class="secondary-button" id="vetting-mode-btn">
+                    Check how Eric matches a job description
+                </button>
+            </div>
         </div>
     </div>
 

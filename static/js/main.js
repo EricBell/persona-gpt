@@ -305,10 +305,18 @@
 
     analyzeButton.addEventListener('click', analyzeJob);
 
-    // Suggestion button handlers
-    document.querySelectorAll('.suggestion-link, .suggestion-button').forEach(function(btn) {
+    // Suggestion button handlers (landing page and chat welcome)
+    document.querySelectorAll('.suggestion-button').forEach(function(btn) {
         btn.addEventListener('click', function() {
             const suggestion = this.dataset.suggestion || this.textContent.trim();
+            submitSuggestion(suggestion);
+        });
+    });
+
+    // Quick prompt buttons on landing page
+    document.querySelectorAll('.prompt-button').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const suggestion = this.dataset.suggestion;
             submitSuggestion(suggestion);
         });
     });
