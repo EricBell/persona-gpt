@@ -26,6 +26,7 @@ RUN uv pip install --system --no-cache .
 # Copy application code (NOT persona.txt or config.json - those are mounted at runtime)
 COPY app.py .
 COPY version.py .
+COPY messages.py .
 COPY job_vetting.py .
 COPY query_logger.py .
 COPY config_validator.py .

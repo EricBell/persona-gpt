@@ -11,6 +11,7 @@ import logging
 import random
 import re
 from openai import OpenAI
+from messages import REFUSAL_RESPONSES, WARNING_MESSAGE, CUTOFF_MESSAGE
 
 
 def extract_company_names(persona_file_path: str) -> list[str]:
@@ -129,16 +130,7 @@ Do not explain. Do not add punctuation. Just the classification."""
 
     return prompt
 
-# Rotating refusal responses (professional but approachable)
-REFUSAL_RESPONSES = [
-    "I'm focused on Eric's professional background. Ask me about his experience, projects, or technical skills!",
-    "That's outside my scope, but I can help with questions about Eric's work history, expertise, or professional values.",
-    "I only discuss Eric's professional life. Try asking about his technical background or notable projects!",
-    "I specialize in Eric's professional profile. Ask about his technical expertise, work experience, or how he approaches problems.",
-    "Not my area—I'm here for Eric's career and professional development. What would you like to know about his background?",
-    "I focus on Eric's professional side. Happy to discuss his skills, projects, or working style!",
-    "That's beyond my scope. I can tell you about Eric's technical experience, leadership approach, or career highlights.",
-]
+# REFUSAL_RESPONSES now imported from messages.py
 
 
 def classify_intent(client: OpenAI, user_message: str, company_names: list[str] = None) -> str:
@@ -209,6 +201,6 @@ def get_warning_response(current_count: int, cutoff: int) -> str:
     remaining = cutoff - current_count
 
     if remaining <= 0:
-        return "You have asked too many off-topic questions. This session has been limited."
+        return CUTOFF_MESSAGE
     else:
-        return "You're straying away from Eric's professional life too much. I'll cut you off if you continue."
+        return WARNING_MESSAGE

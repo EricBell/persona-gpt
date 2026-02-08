@@ -29,6 +29,7 @@ from usage_tracker import (
     log_usage, parse_usage_logs, calculate_usage_stats, get_recent_expensive_sessions,
     fetch_openai_usage, parse_openai_usage_response, compare_usage
 )
+from messages import HELP_RESPONSE, META_QUESTIONS
 
 load_dotenv()
 
@@ -403,6 +404,20 @@ def chat():
             'error': 'Message too long',
             'max_length': MAX_QUERY_LENGTH
         }), 400
+
+    # Check for meta-questions (help/usage queries)
+    if user_message.lower().strip() in META_QUESTIONS:
+        # Return hardcoded help response without calling OpenAI
+        # Don't increment counters or add to conversation history
+        return jsonify({
+            'response': HELP_RESPONSE,
+            'in_scope_count': get_in_scope_count(),
+            'out_of_scope_count': get_out_of_scope_count(),
+            'total_turns': get_total_turns(),
+            'max_queries': max_queries,
+            'queries_remaining': max_queries - get_total_turns(),
+            'meta_query': True  # Flag to indicate this was a meta-question
+        })
 
     # LLM-based intent classification
     try:
