@@ -1037,6 +1037,16 @@ def usage_api():
         })
 
 
+@app.errorhandler(404)
+def not_found(e):
+    return render_template('error.html', error_code=404, error_message='Page not found'), 404
+
+
+@app.errorhandler(500)
+def server_error(e):
+    return render_template('error.html', error_code=500, error_message='Internal server error'), 500
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='ProfileGPT - Ask Eric AI')
     parser.add_argument('--mode', choices=['local', 'container'], default='local',
