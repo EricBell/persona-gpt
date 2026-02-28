@@ -37,8 +37,8 @@ services:
       - SMTP_USERNAME=${SMTP_USERNAME}
       - SMTP_PASSWORD=${SMTP_PASSWORD}
 
-
-
+    labels:
+      - "traefik.enable=true"
 
 
     volumes:
